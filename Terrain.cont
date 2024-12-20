@@ -1,0 +1,65 @@
+#version 400
+
+layout(vertices = 4) out;
+uniform vec4 eyePos;
+uniform bool highLOD;
+uniform bool cracking;
+
+
+int getLOD(float dist, float dmin, float dmax, float low, float high){
+    int level = int((dist - dmin) / (dmax - dmin) * (low - high) + high);
+
+    if (level < low){
+        level = int(low);
+    }
+    if (level > high){
+       level = int(high);
+    }
+    return level;
+}
+
+
+void main()
+{
+    float dmin = 5, dmax = 100;
+    float low , high;
+    
+    if (highLOD) {
+        low = 30.0;
+        high = 100.0;
+    } else {
+        low = 5;
+        high = 50;
+    }
+
+    int innerLevel;
+    int outerLevels[4];
+    
+    vec4 avg = (gl_in[0].gl_Position
+                + gl_in[1].gl_Position
+                + gl_in[2].gl_Position
+                + gl_in[3].gl_Position) * 0.25; 
+    
+    innerLevel = getLOD(distance(eyePos, avg), dmin, dmax, low, high);
+   
+    if (!cracking){
+        for (int i = 0; i < 4; i++){
+            avg = (gl_in[int(mod(i - 1, 4))].gl_Position + gl_in[i].gl_Position) * 0.5;       
+            outerLevels[i] = getLOD(distance(eyePos, avg), dmin, dmax, low, high);
+        }
+    } else {
+        for (int i = 0; i < 4; i++){
+             outerLevels[i] = innerLevel;
+        }
+    }
+   
+    gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
+
+    gl_TessLevelOuter[0] = outerLevels[0];
+    gl_TessLevelOuter[1] = outerLevels[1];
+    gl_TessLevelOuter[2] = outerLevels[2];
+    gl_TessLevelOuter[3] = outerLevels[3];
+    gl_TessLevelInner[0] = innerLevel;
+    gl_TessLevelInner[1] = innerLevel;
+}
+
